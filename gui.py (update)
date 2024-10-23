@@ -1,0 +1,184 @@
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+import threading
+from db import register_user, authenticate_user, save_query_to_history
+from virtual_assistant import (speak, get_text, get_response, assistant,
+                                current_weather, send_email, play_song,
+                                hello, get_time, set_text_widget)
+
+current_user_id = None  # Biến toàn cục để lưu ID người dùng hiện tại
+
+class ModernLogin:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Login")
+        self.root.geometry("800x500")
+        self.root.configure(bg="white")
+        self.root.resizable(False, False)
+
+        # Main container
+        self.container = tk.Frame(self.root, bg="white")
+        self.container.pack(expand=True, fill="both", padx=20, pady=20)
+
+        # Left and right frames
+        self.left_frame = tk.Frame(self.container, bg="white")
+        self.left_frame.pack(side="left", expand=True, fill="both", padx=(0, 20))
+
+        self.right_frame = tk.Frame(self.container, bg="white")
+        self.right_frame.pack(side="right", expand=True, fill="both")
+
+        self.setup_left_frame()
+        self.setup_right_frame()
+
+    def setup_left_frame(self):
+        try:
+            image = Image.open("login.png")
+            image = image.resize((400, 400))
+            photo = ImageTk.PhotoImage(image)
+            illustration = tk.Label(self.left_frame, image=photo, bg="white")
+            illustration.image = photo
+            illustration.pack(expand=True, fill="both")
+        except Exception as e:
+            print(f"Error loading image: {e}")
+            self.show_image_placeholder()
+
+    def show_image_placeholder(self):
+        placeholder = tk.Frame(self.left_frame, bg="#f0f5ff")
+        placeholder.pack(expand=True, fill="both")
+        placeholder_text = tk.Label(placeholder,
+                                    text="[Illustration Area]\n\nPlace 'login.png' in the same\ndirectory as this script",
+                                    bg="#f0f5ff", font=("Arial", 14), fg="#666666")
+        placeholder_text.pack(expand=True)
+
+    def setup_right_frame(self):
+        title = tk.Label(self.right_frame, text="Sign in", font=("Arial", 24, "bold"), bg="white", fg="#2d84fb")
+        title.pack(pady=(0, 30), anchor="w")
+
+        self.create_form_entry("Username", self.right_frame, False)
+        self.create_form_entry("Password", self.right_frame, True)
+
+        signin_button = tk.Button(self.right_frame, text="Sign in", font=("Arial", 12), bg="#007FFF", fg="white",
+                                  relief="flat", activebackground="#0066CC", activeforeground="white",
+                                  cursor="hand2", height=2, command=self.sign_in)
+        signin_button.pack(fill="x")
+
+        signin_button.bind("<Enter>", lambda e: e.widget.config(bg="#0066CC"))
+        signin_button.bind("<Leave>", lambda e: e.widget.config(bg="#007FFF"))
+
+        self.create_signup_link()
+
+    def create_form_entry(self, label_text, parent, is_password):
+        label = tk.Label(parent, text=label_text, font=("Arial", 12), bg="white")
+        label.pack(anchor="w")
+
+        entry = tk.Entry(parent, font=("Arial", 12), bg="white", relief="solid", borderwidth=1)
+        if is_password:
+            entry.config(show="•")
+        entry.pack(fill="x", pady=(5, 20 if is_password else 30))
+
+        if label_text == "Username":
+            self.username_entry = entry
+        else:
+            self.password_entry = entry
+
+    def create_signup_link(self):
+        signup_frame = tk.Frame(self.right_frame, bg="white")
+        signup_frame.pack(pady=20)
+
+        signup_text = tk.Label(signup_frame, text="Don't have an account? ", font=("Arial", 10), bg="white")
+        signup_text.pack(side="left")
+
+        signup_link = tk.Label(signup_frame, text="Sign up", font=("Arial", 10), fg="#2d84fb", cursor="hand2", bg="white")
+        signup_link.pack(side="left")
+        signup_link.bind("<Button-1>", self.sign_up)
+
+    def sign_in(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+
+        if not username or not password:
+            messagebox.showwarning("Warning", "Please fill in all fields")
+            return
+
+        user = authenticate_user(username, password)
+        if user:
+            global current_user_id
+            current_user_id = user[0]
+            messagebox.showinfo("Đăng nhập thành công", f"Chào mừng {username}!")
+            self.root.destroy()
+            start_assistant()
+        else:
+            messagebox.showerror("Lỗi", "Tài khoản hoặc mật khẩu không chính xác!")
+
+    def sign_up(self, event):
+        print("Sign up clicked")
+        # Implement sign-up functionality here
+
+def start_assistant():
+    global root_window
+    root_window = tk.Tk()  # Lưu cửa sổ chính
+    root_window.title("Trợ lý ảo")
+    root_window.geometry("600x400")
+    root_window.configure(bg="#f0f0f0")
+
+    text_widget = tk.Text(root_window, wrap='word', bg="#f0f0f0", fg="black", font=("Arial", 12), state=tk.DISABLED)
+    text_widget.pack(expand=True, fill='both')
+
+    set_text_widget(text_widget)
+
+    # Khởi động trợ lý ảo bằng một thread riêng
+    threading.Thread(target=assistant, daemon=True).start()
+
+    root_window.mainloop()  # Bắt đầu vòng lặp chính của Tkinter
+
+
+    set_text_widget(text_widget)
+
+    # Khởi động trợ lý ảo bằng một thread riêng
+    threading.Thread(target=assistant, daemon=True).start()
+
+    root_window.mainloop()  # Bắt đầu vòng lặp chính của Tkinter
+
+
+
+def send_message(text_widget, user_message):
+    if user_message:
+        text_widget.config(state=tk.NORMAL)  # Cho phép ghi văn bản vào
+        text_widget.insert(tk.END, f"Bạn: {user_message}\n")
+        text_widget.see(tk.END)
+        text_widget.config(state=tk.DISABLED)  # Ngăn người dùng nhập văn bản
+
+        response = get_response(user_message)
+        if response:
+            text_widget.config(state=tk.NORMAL)  # Cho phép ghi văn bản vào
+            text_widget.insert(tk.END, f"Bot: {response}\n")
+            text_widget.see(tk.END)
+            text_widget.config(state=tk.DISABLED)  # Ngăn người dùng nhập văn bản
+            save_query_to_history(current_user_id, user_message, response)
+        else:
+            speak("Bot không thể trả lời câu hỏi này")
+            text_widget.config(state=tk.NORMAL)
+            text_widget.insert(tk.END, "Bot không thể trả lời câu hỏi này.\n")
+            text_widget.see(tk.END)
+            text_widget.config(state=tk.DISABLED)
+
+def listen_to_user(text_widget):
+    while True:
+        user_speech = get_text()
+        if user_speech:
+            text_widget.config(state=tk.NORMAL)
+            text_widget.insert(tk.END, f"Bạn (qua giọng nói): {user_speech}\n")
+            text_widget.see(tk.END)
+            text_widget.config(state=tk.DISABLED)
+
+            response = get_response(user_speech)
+            if response == "exit":  # Nếu bot nói tạm biệt, thoát vòng lặp
+                break
+def main():
+    root = tk.Tk()
+    app = ModernLogin(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
