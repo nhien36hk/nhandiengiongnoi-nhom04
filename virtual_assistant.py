@@ -35,7 +35,7 @@ wikipedia.set_lang('vi')
 language = 'vi'
 path = ChromeDriverManager().install()
 
-print("Virtual Assistant is running")
+print("Vui lòng chạy file app.py")
 # Hàm chuyển text sang giọng nói
 def speak(text):
     try:
@@ -177,7 +177,7 @@ def send_email(text):
         mail = smtplib.SMTP('smtp.gmail.com', 587)
         mail.ehlo()
         mail.starttls()
-        mail.login('kingofpro1410@gmail.com', 'Pass của tụi mèy') #Vào trang này mà tạo nhé https://myaccount.google.com/apppasswords?pli=1&rapt=AEjHL4OCULUaL9Mu5coD8hG6luRej3zx6WWfUsH8pZbZbQv9vBzJ1En1nVOaxRjLy7S6mKXLPRO7djjB2LVooYn9jH9PzkcDOyZgxf3VAMUg-anRWlr9SZ8
+        mail.login('kingofpro1410@gmail.com', 'ypvc gccd fysu cqyp') #Vào trang này mà tạo nhé https://myaccount.google.com/apppasswords?pli=1&rapt=AEjHL4OCULUaL9Mu5coD8hG6luRej3zx6WWfUsH8pZbZbQv9vBzJ1En1nVOaxRjLy7S6mKXLPRO7djjB2LVooYn9jH9PzkcDOyZgxf3VAMUg-anRWlr9SZ8
         mail.sendmail('kingofpro1410@gmail.com',
                       '2254810197@vaa.edu.vn', content.encode('utf-8'))
         mail.close()
@@ -396,57 +396,15 @@ def get_response(text):
     elif "thời tiết" in text:
         response = current_weather()
         command_handled = True
+    elif "định nghĩa" in text:
+        response = tell_me_about(text)
+        command_handled = True
+    elif "thay đổi hình nền" in text:
+        response = change_wallpaper()
+        command_handled = True
 
     # Nếu lệnh đã được xử lý, trả về phản hồi
     if command_handled:
         return response
     return None  # Nếu không có lệnh nào được xử lý
     
-    
-def assistant():
-    speak("Xin chào, bạn tên là gì nhỉ?")
-    name = get_text()
-    if name:
-        speak("Chào bạn {}".format(name))
-        speak("Bạn cần Bot Alex có thể giúp gì ạ?")
-        while True:
-            text = get_text()
-            if not text:
-                break
-            elif "dừng" in text or "tạm biệt" in text or "chào robot" in text or "ngủ thôi" in text:
-                stop()
-                break
-            elif "có thể làm gì" in text:
-                help_me()
-            elif "chào trợ lý ảo" in text:
-                hello(name)
-            elif "bây giờ" in text:
-                get_time(text)
-            elif "mở" in text:
-                if 'mở google và tìm kiếm' in text:
-                    open_google_and_search(text)
-                elif "trang" in text:
-                    open_website(text)
-                else:
-                    open_application(text)
-            elif "email" in text or "mail" in text or "gmail" in text:
-                send_email(text)
-            elif "thời tiết" in text:
-                current_weather()
-            elif "chơi nhạc" in text:
-                play_song()
-            elif "hình nền" in text:
-                change_wallpaper()
-            elif "đọc báo" in text:
-                read_news()
-            elif "định nghĩa" in text:
-                tell_me_about(text)
-            else:
-                speak("Bạn cần Bot giúp gì ạ?")
-                
-# Định nghĩa hàm main()
-def main():
-    assistant()  # Gọi hàm trợ lý ảo
-
-if __name__ == "__main__":
-    main()
