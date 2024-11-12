@@ -3,7 +3,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 
 # Kết nối với Firebase
-cred = credentials.Certificate('study2024-6f1d0-firebase-adminsdk-dodle-6a27d5e27f.json')  # Thay 'path/to/your-firebase-adminsdk.json' bằng đường dẫn thực tế
+cred = credentials.Certificate('study2024-6f1d0-firebase-adminsdk-dodle-df9886ca66.json')  # Thay 'path/to/your-firebase-adminsdk.json' bằng đường dẫn thực tế
 firebase_admin.initialize_app(cred)
 
 # Tạo đối tượng kết nối Firestore
