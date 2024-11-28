@@ -1,11 +1,16 @@
+# Thêm dòng này vào đầu Podfile
+source 'https://github.com/CocoaPods/Specs.git'
+
 # Uncomment the next line to define a global platform for your project
-platform :ios, '10.0'  # Hoặc chọn phiên bản khác cao hơn nếu bạn cần
+platform :ios, '10.0'
 
 target 'Runner' do
   # Comment the next line if you don't want to use dynamic frameworks
   use_frameworks!
 
   # Pods for Runner
+  pod 'Firebase/Auth'  # Đây là phần quan trọng cần thêm vào để sử dụng firebase_auth
+
   target 'RunnerTests' do
     inherit! :search_paths
     # Pods for testing
