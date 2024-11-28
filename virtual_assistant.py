@@ -22,6 +22,9 @@ import os
 from youtube_search import YoutubeSearch
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from openai import OpenAI
+import threading
+import cohere
 
 # Định nghĩa biến toàn cục
 text_widget = None
@@ -43,8 +46,6 @@ def speak(text):
         if os.path.exists("speech.mp3"):
             os.remove("speech.mp3")
         print(f"Bot: {text}")   
-        text_widget.insert(tk.END, f"Bot: {text}\n")
-        text_widget.see(tk.END)
         tts = gTTS(text=text, lang='vi')
         tts.save("speech.mp3")
         playsound.playsound("speech.mp3")
@@ -83,7 +84,7 @@ def hello():
     day_time = int(strftime('%H'))
     if day_time < 12:
         speak("Chào buổi sáng bạn {}. Chúc bạn một ngày tốt lành.")
-        return "Chào buổi sáng bạn {}. Chúc bạn một ngày tốt lành."
+        return "Ch��o buổi sáng bạn {}. Chúc bạn một ngày tốt lành."
     elif 12 <= day_time < 18:
         speak("Chào buổi chiều bạn {}. Bạn đã dự định gì cho chiều nay chưa.")
         return "Chào buổi chiều bạn {}. Bạn đã dự định gì cho chiều nay chưa."
@@ -171,7 +172,7 @@ def open_google_and_search(text):
 def send_email(text):
     speak('Bạn gửi email cho ai nhỉ')
     recipient = get_text()
-    if 'nhiên' in recipient.lower():
+    if 'tuấn' in recipient.lower():
         speak('Nội dung bạn muốn gửi là gì')
         content = get_text()
         mail = smtplib.SMTP('smtp.gmail.com', 587)
@@ -276,7 +277,7 @@ def change_wallpaper():
     image=os.path.join("C:/Users/nhiensadboizz/Downloads/a.png")
     ctypes.windll.user32.SystemParametersInfoW(20,0,image,3)
     speak('Hình nền máy tính vừa được thay đổi')
-    return 'Hình nền máy tính vừa được thay đổi'
+    return 'Hình nền my tính vừa được thay đổi'
 def read_news():
     speak("Bạn muốn đọc báo về gì")
     
@@ -360,21 +361,89 @@ def help_me():
     10. Nói cho bạn biết định nghĩa mọi thứ """
     
     
-# virtual_assistant.py
+# Khởi tạo OpenAI client cho Ollama
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama"
+)
+
+
+# Thêm biến toàn cục để lưu lịch sử hội thoại
+conversation_history = []
+
+# Initialize Cohere client
+co = cohere.Client('ZOQFdWG6N06aCiWwqqtsIcImDlOAv8eBOihK9vdf')  # Replace with your actual API key
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama"
+)
+
+def ask_gemma(question):
+    try:
+        global conversation_history
+        conversation_history.append({"role": "user", "content": question})
+        
+        response_stream = client.chat.completions.create(
+            model="gemma2:9b",  # hoặc model khác từ Ollama
+            messages=conversation_history,
+            temperature=0.7,
+            max_tokens=2048,
+            stream=True
+        )
+
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                full_response += content
+                
+                # Hiển thị từng ký tự trong text widget
+                if text_widget:
+                    text_widget.insert(tk.END, content)
+                    text_widget.see(tk.END)
+                    text_widget.update()
+
+        # Thêm xuống dòng sau khi hoàn thành
+        if text_widget:
+            text_widget.insert(tk.END, "\n")
+            text_widget.see(tk.END)
+            text_widget.update()
+
+        conversation_history.append({"role": "assistant", "content": full_response})
+        
+        # Giới hạn lịch sử
+        if len(conversation_history) > 10:
+            conversation_history = conversation_history[-10:]
+
+        # Tạo thread mới để xử lý speech
+        threading.Thread(target=speak, args=(full_response,), daemon=True).start()
+        
+        return full_response
+        
+    except Exception as e:
+        print(f"Error using Ollama: {e}")
+        return "Xin lỗi, tôi không thể xử lý câu hỏi này."
+
+# Thêm hàm để xóa lịch sử khi cần
+def clear_conversation_history():
+    global conversation_history
+    conversation_history = []
+
 def get_response(text):
-    command_handled = False  # Biến cờ để kiểm tra xem lệnh đã được xử lý chưa
-    response = None  # Khởi tạo biến phản hồi
+    command_handled = False
+    response = None
 
     if not text:
         return
-    elif "dừng" in text or "tạm biệt" in text or "chào robot" in text or "ngủ thôi" in text:
+    elif "dừng" in text or "tạm biệt" in text or "chào tạm biệt" in text or "ngủ thôi" in text:
         stop()
         command_handled = True
     elif "chào trợ lý ảo" in text:
         response = hello()
         command_handled = True
     elif "có thể làm gì" in text:
-        response = help_me()  # Lưu phản hồi từ help_me()
+        response = help_me()
         command_handled = True
     elif "hiện tại" in text:
         response = get_time(text)
@@ -400,11 +469,13 @@ def get_response(text):
         response = tell_me_about(text)
         command_handled = True
     elif "thay đổi hình nền" in text:
-        response = change_wallpaper()
+        response = change_wallpaper()   
         command_handled = True
 
-    # Nếu lệnh đã được xử lý, trả về phản hồi
-    if command_handled:
+    # If no command was handled, use Cohere
+    if not command_handled:
+        response = ask_gemma(text)
         return response
-    return None  # Nếu không có lệnh nào được xử lý
+            
+    return response
     
