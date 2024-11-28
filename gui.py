@@ -6,46 +6,101 @@ from PIL import Image, ImageTk
 from virtual_assistant import (speak, get_text, get_response, set_text_widget)  # Import các hàm cần thiết từ virtual_assistant
 import threading
 from datetime import datetime
+import sys
+import os
 
-current_user_id = None  # Biến toàn cục để lưu ID người dùng hiện tại
-FLASK_API_URL = "http://127.0.0.1:5000"  # Địa chỉ API Flask
+# Add at the top with other global variables
+root = None
+current_user_id = None
+FLASK_API_URL = "http://127.0.0.1:5000"
+global entry_email, entry_password, entry_full_name, login_frame, button_frame
+
+# Global variable for entry_full_name
+entry_full_name = None  # Initialize it
+
+# Add this at the top with other global variables
+text_widget = None
+
+# Thêm biến global ở đầu file
+is_listening = False
+
+# Thêm biến toàn cục cho nút mic
+mic_btn = None
+
+# Add at the top with other global variables
+mic_image = None
+mic_active_image = None
+
+def on_closing():
+    """Hàm xử lý khi đóng cửa sổ"""
+    if messagebox.askokcancel("Thoát", "Bạn có muốn thoát chương trình?"):
+        # Đóng cửa sổ Tkinter
+        root.destroy()
+        # Tắt toàn bộ chương trình
+        os._exit(0)  # Hoặc sys.exit(0)
+
 
 def register():
-    username = entry_username.get()
-    password = entry_password.get()
-    if username and password:
+    global entry_full_name  # Đảm bảo biến này được khai báo là toàn cục
+    username = entry_email.get()  # Lấy gi trị từ trường email
+    password = entry_password.get()  # Lấy giá trị từ trường password
+    full_name = entry_full_name.get()  # Lấy giá trị từ trường full_name
+
+    # Ghi log để kiểm tra giá trị nhận được
+    print(f"Username: {username}, Password: {password}, Full Name: {full_name}")
+
+    if username and password and full_name:
         try:
-            response = requests.post(f"{FLASK_API_URL}/register", json={"username": username, "password": password})
+            response = requests.post(f"{FLASK_API_URL}/register", json={
+                "email": username,
+                "password": password,
+                "full_name": full_name
+            })
             if response.status_code == 201:
                 messagebox.showinfo("Đăng ký thành công", response.json()["message"])
-                entry_username.delete(0, tk.END)
+                entry_email.delete(0, tk.END)
                 entry_password.delete(0, tk.END)
+                entry_full_name.delete(0, tk.END)  # Xóa trường full_name
             else:
                 messagebox.showerror("Lỗi", response.json().get("error", "Có lỗi xảy ra!"))
         except Exception as e:
             messagebox.showerror("Lỗi", str(e))
     else:
-        messagebox.showwarning("Cảnh báo", "Vui lòng nhập tên đăng nhập và mật khẩu.")
+        messagebox.showwarning("Cảnh báo", "Vui lòng nhập tên đăng nhập, mật khẩu và họ tên.")
 
 def login():
     global current_user_id
-    username = entry_username.get()
-    password = entry_password.get()
-    response = requests.post(f"{FLASK_API_URL}/login", json={"username": username, "password": password})
-    
-    if response.status_code == 200:
-        current_user_id = response.json()["user_id"]
-        messagebox.showinfo("Đăng nhập thành công", response.json()["message"])
-        entry_username.delete(0, tk.END)
-        entry_password.delete(0, tk.END)
-        
-        # Ẩn toàn bộ khung đăng nhập và minh họa
-        main_container.pack_forget()
-        
-        # Hiển thị giao diện trợ lý ảo
-        show_assistant_interface()
-    else:
-        messagebox.showerror("Lỗi", response.json().get("error", "Có lỗi xảy ra!"))
+    username = entry_email.get()  # Lấy giá trị từ trường email
+    password = entry_password.get()  # Lấy giá trị từ trường password
+
+    # Ghi log để kiểm tra giá trị nhận được
+    print(f"Debug - Username: {username}, Password: {password}")
+
+    if not username or not password:
+        messagebox.showwarning("Cảnh báo", "Vui lòng nhập email và mật khẩu.")
+        return
+
+    try:
+        response = requests.post(f"{FLASK_API_URL}/login", json={"email": username, "password": password})
+        response_data = response.json()  # Thử chuyển đổi phản hồi thành JSON
+
+        if response.status_code == 200:
+            current_user_id = response_data["user_id"]
+            messagebox.showinfo("Đăng nhập thành công", response_data["message"])
+            entry_email.delete(0, tk.END)
+            entry_password.delete(0, tk.END)
+
+            # Ẩn toàn bộ khung đăng nhập và minh họa
+            main_container.pack_forget()
+
+            # Hiển thị giao diện trợ lý ảo
+            show_assistant_interface()
+        else:
+            messagebox.showerror("Lỗi", response_data.get("error", "Có lỗi xảy ra!"))
+    except requests.exceptions.JSONDecodeError:
+        messagebox.showerror("Lỗi", "Phản hồi không hợp lệ từ server.")
+    except Exception as e:
+        messagebox.showerror("Lỗi", str(e))
 
 
         
@@ -54,7 +109,7 @@ def fetch_query_history():
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            return response.json()  # Giả sử API trả về danh sách các truy vấn
+            return response.json()  # Giả s API trả về danh sách các truy vấn
         else:
             messagebox.showerror("Lỗi", "Không thể lấy lịch sử truy vấn.")
             return []
@@ -68,7 +123,7 @@ def save_query(user_id, question, answer):
         'user_id': user_id,
         'question': question,
         'answer': answer,
-        'created_at': datetime.now().isoformat()  # Lưu thời gian hiện tại theo định dạng ISO
+        'created_at': datetime.now().isoformat()  # Lưu thời gian hiện tại theo định dng ISO
     }
 
     response = requests.post(url, json=payload)
@@ -80,6 +135,7 @@ def save_query(user_id, question, answer):
             
 
 def show_assistant_interface():
+    global text_widget, mic_btn, mic_image, mic_active_image
     # Kiểm tra nếu giao diện trợ lý ảo đã được hiển thị
     if assistant_frame.winfo_ismapped():
         return  # Không làm gì nếu giao diện đã hiển thị
@@ -98,9 +154,6 @@ def show_assistant_interface():
     # Hiển thị giao diện trợ lý ảo
     assistant_frame.pack(fill=tk.BOTH, expand=True)
     assistant_frame.configure(bg=colors['bg'])
-
-    # Tiếp tục cấu hình các thành phần khác như title, content area, chat area, v.v.
-
 
     # Title "Virtual Assistant"
     title_frame = tk.Frame(assistant_frame, bg=colors['bg'])
@@ -170,21 +223,19 @@ def show_assistant_interface():
     scrollbar.configure(command=text_widget.yview)
 
     # Input area frame
-    global entry1  # Thêm biến global
     input_frame = tk.Frame(chat_frame, bg=colors['bg'])
     input_frame.pack(fill=tk.X, pady=10)
 
-    # Text entry
-    entry1 = tk.Entry(
-        input_frame,
-        font=('Helvetica', 11),
-        bg='#f8f9fa',
+    # Text entry for chat
+    entry_chat = tk.Entry(
+        input_frame, 
+        font=('Helvetica', 11), 
+        bg='#f8f9fa', 
         relief="flat"
     )
-    entry1.pack(fill=tk.X, pady=(0, 10), ipady=8)
-    
+    entry_chat.pack(fill=tk.X, pady=(0, 10), ipady=8)
+
     # Buttons frame
-    global button_frame  # Thêm biến global
     button_frame = tk.Frame(input_frame, bg=colors['bg'])
     button_frame.pack(fill=tk.X)
 
@@ -197,72 +248,19 @@ def show_assistant_interface():
         'cursor': 'hand2'
     }
 
-    # Biến để theo dõi trạng thái mic
-    is_listening = False
-    
-    # Tạo và cấu hình ảnh cho microphone
-    try:
-        # Tải ảnh mic (đảm bảo file tồn tại trong thư mục của bạn)
-        mic_icon = Image.open("mic.png")  # Mic đang tắt
-        mic_active_icon = Image.open("mic_active.png")  # Mic đang bật
-        
-        # Resize ảnh nếu cần
-        icon_size = (30, 30)
-        mic_icon = mic_icon.resize(icon_size, Image.Resampling.LANCZOS)
-        mic_active_icon = mic_active_icon.resize(icon_size, Image.Resampling.LANCZOS)
-        
-        # Chuyển đổi sang PhotoImage
-        mic_photo = ImageTk.PhotoImage(mic_icon)
-        mic_active_photo = ImageTk.PhotoImage(mic_active_icon)
-        
-    except Exception as e:
-        print(f"Error loading microphone icons: {e}")
-        # Fallback nếu không tải được ảnh
-        mic_photo = None
-        mic_active_photo = None
+    # Microphone button
+    mic_image = Image.open("mic.png").resize((30, 30), Image.Resampling.LANCZOS)  # Thay đổi kích thước
+    mic_image = ImageTk.PhotoImage(mic_image)
 
-    def toggle_listening():
-        nonlocal is_listening
-        is_listening = not is_listening
-        
-        if is_listening:
-            # Bắt đầu lắng nghe
-            mic_btn.configure(image=mic_active_photo) if mic_active_photo else mic_btn.configure(text="🎤 ON")
-            threading.Thread(target=start_listening, args=(text_widget,), daemon=True).start()
-        else:
-            # Dừng lắng nghe
-            mic_btn.configure(image=mic_photo) if mic_photo else mic_btn.configure(text="🎤")
+    mic_active_image = Image.open("mic_active.png").resize((30, 30), Image.Resampling.LANCZOS)  # Thay đổi kích thước
+    mic_active_image = ImageTk.PhotoImage(mic_active_image)
 
-    def start_listening(text_widget):
-        while is_listening:
-            user_speech = get_text()  # Nhận diện giọng nói
-            if user_speech and is_listening:  # Kiểm tra lại trạng thái trước khi xử lý
-                send_message(user_speech, text_widget)
-
-    # Tạo nút microphone
-    if mic_photo:
-        mic_btn = tk.Button(
-            button_frame,
-            image=mic_photo,
-            bg=colors['bg'],
-            command=toggle_listening,
-            relief="flat",
-            bd=0,
-            cursor="hand2"
-        )
-        # Lưu reference cho ảnh
-        mic_btn.image = mic_photo
-        mic_btn.active_image = mic_active_photo
-    else:
-        # Fallback nếu không có ảnh
-        mic_btn = tk.Button(
-            button_frame,
-            text="🎤",
-            bg=colors['bg'],
-            command=toggle_listening,
-            **button_style
-        )
-
+    mic_btn = tk.Button(
+        button_frame,
+        image=mic_image,
+        command=toggle_listening,
+        relief="flat"
+    )
     mic_btn.pack(side=tk.LEFT, padx=5)
 
     # Clear button
@@ -282,7 +280,7 @@ def show_assistant_interface():
         text="History",
         bg=colors['history_btn'],
         fg='white',
-        command=lambda: show_query_history(text_widget),
+        command=lambda: show_query_history(text_widget, button_frame),
         **button_style
     )
     history_btn.pack(side=tk.LEFT, padx=5)
@@ -296,7 +294,7 @@ def show_assistant_interface():
     set_text_widget(text_widget)
 
     # Bind Enter key to send message
-    entry1.bind("<Return>", lambda e: send_message_in_thread(entry1.get(), text_widget))
+    entry_chat.bind("<Return>", lambda e: send_message_in_thread(entry_chat.get(), text_widget))
     
 def send_message_in_thread(user_message, text_widget):
     threading.Thread(target=send_message, args=(user_message, text_widget), daemon=True).start()
@@ -325,12 +323,17 @@ def send_message(user_message, text_widget):
             text_widget.insert(tk.END, "Bot không thể trả lời câu hỏi này.\n")
             text_widget.see(tk.END)
             
-        # Xóa nội dung trong entry sau khi gửi
-        entry1.delete(0, tk.END)
+        # Xa nội dung trong entry sau khi gửi
+        entry_email.delete(0, tk.END)
             
 def ask(text_widget):
-    # Khởi động việc lắng nghe người dùng
-    threading.Thread(target=listen_to_user, args=(text_widget,), daemon=True).start()
+    global is_listening
+    try:
+        user_speech = get_text()  # Nhận diện giọng nói
+        if user_speech:
+            send_message(user_speech, text_widget)
+    finally:
+        is_listening = False  # Đảm bảo reset trạng thái khi kết thúc
     
 def delete_text(text_widget):
     # Xóa toàn bộ nội dung trong text_widget
@@ -339,14 +342,29 @@ def delete_text(text_widget):
     text_widget.insert(tk.END, "Xin chào! Tôi có thể giúp gì cho bạn?\n", "greeting")
     text_widget.see(tk.END)
 
+def toggle_listening():
+    """Hàm để bật/tắt chế độ lắng nghe giọng nói"""
+    global is_listening, text_widget, mic_btn
+    
+    if not is_listening:
+        is_listening = True
+        mic_btn.config(image=mic_active_image)  # Thay đổi hình ảnh khi mic hoạt động
+        threading.Thread(target=lambda: listen_to_user(text_widget), daemon=True).start()
+    else:
+        is_listening = False
+        mic_btn.config(image=mic_image)  # Thay đổi hình ảnh khi mic không hoạt động
+
 def listen_to_user(text_widget):
-    while True:
+    global is_listening
+    while is_listening:  # Kiểm tra trạng thái lắng nghe
         user_speech = get_text()  # Nhận diện giọng nói
         if user_speech:
-            # Gọi hàm xử lý lệnh từ giọng nói
             send_message(user_speech, text_widget)
-            
-def show_query_history(text_widget):
+            break  # Thoát vòng lặp sau khi gửi tin nhắn
+    is_listening = False  # Đảm bảo reset trạng thái khi kết thúc
+    mic_btn.config(image=mic_image)  # Reset hình ảnh mic
+
+def show_query_history(text_widget, button_frame):
     # Xóa nội dung hiện tại trong text_widget
     text_widget.delete("1.0", tk.END)
     
@@ -401,7 +419,7 @@ def restore_chat(text_widget, back_btn):
     back_btn.destroy()
     
     # Enable lại các chức năng chat
-    entry1.config(state='normal')
+    entry_email.config(state='normal')
     text_widget.config(state='normal')
 
 def setup_image(parent_frame):
@@ -426,12 +444,10 @@ def show_image_placeholder(parent_frame):
 
 # Thêm các biến global mới
 def show_register_form():
-    global entry_username, entry_password, login_frame
-    
-    # Xóa login frame hiện tại
+    # Clear the current login frame
     login_frame.destroy()
     
-    # Tạo register frame mới
+    # Create a new register frame
     login_frame = tk.Frame(right_frame, bg="white")
     login_frame.place(relx=0.5, rely=0.5, anchor="center")
     
@@ -444,17 +460,17 @@ def show_register_form():
     )
     sign_up_label.pack(anchor="w", pady=(0, 20))
     
-    # Username field
-    username_label = tk.Label(
+    # Full Name field
+    full_name_label = tk.Label(
         login_frame, 
-        text="Username", 
+        text="Full Name", 
         font=("Helvetica", 10), 
         bg="white", 
         fg="#666"
     )
-    username_label.pack(anchor="w")
+    full_name_label.pack(anchor="w")
     
-    entry_username = tk.Entry(
+    entry_full_name = tk.Entry(
         login_frame,
         font=("Helvetica", 12),
         bg="white",
@@ -462,8 +478,30 @@ def show_register_form():
         relief="solid",
         bd=1
     )
-    entry_username.pack(fill="x", pady=(5, 15))
-    entry_username.configure(highlightthickness=1, highlightcolor="#1a73e8")
+    entry_full_name.pack(fill="x", pady=(5, 15))
+    entry_full_name.configure(highlightthickness=1, highlightcolor="#1a73e8")
+
+    
+    # Username field
+    username_label = tk.Label(
+        login_frame, 
+        text="Email", 
+        font=("Helvetica", 10), 
+        bg="white", 
+        fg="#666"
+    )
+    username_label.pack(anchor="w")
+    
+    entry_email = tk.Entry(
+        login_frame,
+        font=("Helvetica", 12),
+        bg="white",
+        fg="#333",
+        relief="solid",
+        bd=1
+    )
+    entry_email.pack(fill="x", pady=(5, 15))
+    entry_email.configure(highlightthickness=1, highlightcolor="#1a73e8")
     
     # Password field
     password_label = tk.Label(
@@ -513,7 +551,12 @@ def show_register_form():
     register_btn = tk.Button(
         login_frame,
         text="Sign up",
-        command=lambda: register_user(entry_username, entry_password, entry_confirm),
+        command=lambda: register_user(
+            entry_email,        # Truyền đối tượng Entry
+            entry_password,     # Truyền đối tượng Entry
+            entry_confirm,      # Truyền đối tượng Entry
+            entry_full_name     # Truyền đối tượng Entry
+        ),
         bg="#1a73e8",
         fg="white",
         font=("Helvetica", 11, "bold"),
@@ -522,7 +565,7 @@ def show_register_form():
         pady=8,
         width=20
     )
-    register_btn.pack(pady=(0, 10))
+    register_btn.pack(pady=(10, 0))
     
     # Login link
     login_link_frame = tk.Frame(login_frame, bg="white")
@@ -568,10 +611,10 @@ def show_register_form():
     login_link.bind("<Enter>", on_link_enter)
     login_link.bind("<Leave>", on_link_leave)
     
-    entry_username.focus()
+    entry_email.focus()
 
 def show_login_form():
-    global entry_username, entry_password, login_frame
+    global entry_email, entry_password, login_frame
     
     # Xóa register frame hiện tại
     login_frame.destroy()
@@ -589,12 +632,14 @@ def show_login_form():
     )
     sign_in_label.pack(anchor="w", pady=(0, 20))
     
-    username_label = tk.Label(login_frame, text="Username", font=("Helvetica", 10), bg="white", fg="#666")
-    username_label.pack(anchor="w")
     
-    entry_username = tk.Entry(login_frame, font=("Helvetica", 12), bg="white", fg="#333", relief="solid", bd=1)
-    entry_username.pack(fill="x", pady=(5, 15))
-    entry_username.configure(highlightthickness=1, highlightcolor="#1a73e8")
+    entry_email = tk.Entry(login_frame, font=("Helvetica", 12), bg="white", fg="#333", relief="solid", bd=1)
+    entry_email.pack(fill="x", pady=(5, 15))
+    entry_email.configure(highlightthickness=1, highlightcolor="#1a73e8")
+    
+    entry_full_name = tk.Entry(login_frame, font=("Helvetica", 12), bg="white", fg="#333", relief="solid", bd=1)
+    entry_full_name.pack(fill="x", pady=(5, 15))
+    entry_full_name.configure(highlightthickness=1, highlightcolor="#1a73e8")
     
     password_label = tk.Label(login_frame, text="Password", font=("Helvetica", 10), bg="white", fg="#666")
     password_label.pack(anchor="w")
@@ -651,14 +696,21 @@ def show_login_form():
     login_btn.bind("<Enter>", on_enter)
     login_btn.bind("<Leave>", on_leave)
     
-    entry_username.focus()
+    entry_email.focus()
 
-def register_user(username_entry, password_entry, confirm_entry):
-    username = username_entry.get()
+def register_user(email_entry, password_entry, confirm_entry, full_name_entry):
+    # In ra để debug
+    print(f"Debug - Email Entry: {email_entry}, Value: {email_entry.get()}")
+    print(f"Debug - Password Entry: {password_entry}, Value: {password_entry.get()}")
+    print(f"Debug - Full Name Entry: {full_name_entry}, Value: {full_name_entry.get()}")
+    
+    # Lấy giá trị từ các entry
+    email = email_entry.get()
     password = password_entry.get()
     confirm = confirm_entry.get()
+    full_name = full_name_entry.get()
     
-    if not username or not password or not confirm:
+    if not email or not password or not confirm or not full_name:
         messagebox.showwarning("Cảnh báo", "Vui lòng điền đầy đủ thông tin!")
         return
         
@@ -667,20 +719,26 @@ def register_user(username_entry, password_entry, confirm_entry):
         return
     
     try:
-        response = requests.post(f"{FLASK_API_URL}/register", json={"username": username, "password": password})
+        # Đảm bảo gi đúng format JSON
+        data = {
+            "email": email, 
+            "password": password,
+            "full_name": full_name
+        }
+        print(f"Debug - Sending data: {data}")  # In ra data trước khi gửi
+        
+        response = requests.post(f"{FLASK_API_URL}/register", json=data)
         if response.status_code == 201:
-            messagebox.showinfo("Thành công", "Đăng ký tài khoản thành công!")
+            messagebox.showinfo("Thành công", "Đăng ký thành công, vui lòng xác nhận email để đăng nhập!")
             show_login_form()  # Chuyển về form đăng nhập
         else:
             messagebox.showerror("Lỗi", response.json().get("error", "Có lỗi xảy ra!"))
     except Exception as e:
         messagebox.showerror("Lỗi", str(e))
 
-
 def create_gui():
-    global entry_username, entry_password, login_frame, main_container, assistant_frame, right_frame
+    global root, entry_email, entry_password, login_frame, main_container, assistant_frame, right_frame
 
-    # Tạo cửa sổ chính
     root = tk.Tk()
     root.title("Virtual Assistant Login")
     window_width, window_height = 900, 500
@@ -738,18 +796,19 @@ def create_gui():
         )
         sign_in_label.pack(anchor="w", pady=(0, 20))
         
-        # Username
-        username_label = tk.Label(
+        
+        # Email
+        email_label = tk.Label(
             login_frame,
-            text="Username",
+            text="Email",
             font=("Helvetica", 10),
             bg="white",
             fg="#666"
         )
-        username_label.pack(anchor="w")
+        email_label.pack(anchor="w")
         
-        global entry_username
-        entry_username = tk.Entry(
+        global entry_email
+        entry_email = tk.Entry(
             login_frame,
             font=("Helvetica", 12),
             bg="white",
@@ -757,8 +816,8 @@ def create_gui():
             relief="solid",
             bd=1
         )
-        entry_username.pack(fill="x", pady=(5, 15))
-        entry_username.configure(highlightthickness=1, highlightcolor="#1a73e8")
+        entry_email.pack(fill="x", pady=(5, 15))
+        entry_email.configure(highlightthickness=1, highlightcolor="#1a73e8")
         
         # Password
         password_label = tk.Label(
@@ -843,7 +902,7 @@ def create_gui():
         register_btn.bind("<Leave>", on_register_leave)
         
         # Focus on username
-        entry_username.focus()
+        entry_email.focus()
 
     def show_register_form():
         # Clear current frame
@@ -860,18 +919,17 @@ def create_gui():
         )
         sign_up_label.pack(anchor="w", pady=(0, 20))
         
-        # Username
-        username_label = tk.Label(
-            login_frame,
-            text="Username",
-            font=("Helvetica", 10),
-            bg="white",
+        # Full Name field
+        full_name_label = tk.Label(
+            login_frame, 
+            text="Full Name", 
+            font=("Helvetica", 10), 
+            bg="white", 
             fg="#666"
         )
-        username_label.pack(anchor="w")
+        full_name_label.pack(anchor="w")
         
-        global entry_username
-        entry_username = tk.Entry(
+        entry_full_name = tk.Entry(
             login_frame,
             font=("Helvetica", 12),
             bg="white",
@@ -879,10 +937,33 @@ def create_gui():
             relief="solid",
             bd=1
         )
-        entry_username.pack(fill="x", pady=(5, 15))
-        entry_username.configure(highlightthickness=1, highlightcolor="#1a73e8")
+        entry_full_name.pack(fill="x", pady=(5, 15))
+        entry_full_name.configure(highlightthickness=1, highlightcolor="#1a73e8")
+
+        # Email field
+        email_label = tk.Label(
+            login_frame, 
+            text="Email", 
+            font=("Helvetica", 10), 
+            bg="white", 
+            fg="#666"
+        )
+        email_label.pack(anchor="w")
         
-        # Password
+        entry_email = tk.Entry(
+            login_frame,
+            font=("Helvetica", 12),
+            bg="white",
+            fg="#333",
+            relief="solid",
+            bd=1
+        )
+        entry_email.pack(fill="x", pady=(5, 15))
+        entry_email.configure(highlightthickness=1, highlightcolor="#1a73e8")
+        
+
+        
+        # Password field
         password_label = tk.Label(
             login_frame,
             text="Password",
@@ -892,7 +973,6 @@ def create_gui():
         )
         password_label.pack(anchor="w")
         
-        global entry_password
         entry_password = tk.Entry(
             login_frame,
             font=("Helvetica", 12),
@@ -905,15 +985,15 @@ def create_gui():
         entry_password.pack(fill="x", pady=(5, 15))
         entry_password.configure(highlightthickness=1, highlightcolor="#1a73e8")
         
-        # Confirm Password
-        confirm_label = tk.Label(
+        # Confirm Password field
+        confirm_password_label = tk.Label(
             login_frame,
             text="Confirm Password",
             font=("Helvetica", 10),
             bg="white",
             fg="#666"
         )
-        confirm_label.pack(anchor="w")
+        confirm_password_label.pack(anchor="w")
         
         entry_confirm = tk.Entry(
             login_frame,
@@ -931,7 +1011,12 @@ def create_gui():
         register_btn = tk.Button(
             login_frame,
             text="Sign up",
-            command=lambda: register_user(entry_username, entry_password, entry_confirm),
+            command=lambda: register_user(
+                entry_email,        # Truyền đối tượng Entry
+                entry_password,     # Truyền đối tượng Entry
+                entry_confirm,      # Truyền đối tượng Entry
+                entry_full_name     # Truyền đối tượng Entry
+            ),
             bg="#1a73e8",
             fg="white",
             font=("Helvetica", 11, "bold"),
@@ -940,7 +1025,7 @@ def create_gui():
             pady=8,
             width=20
         )
-        register_btn.pack(pady=(0, 10))
+        register_btn.pack(pady=(10, 0))
         
         # Login section
         login_frame_link = tk.Frame(login_frame, bg="white")
@@ -987,7 +1072,7 @@ def create_gui():
         login_btn.bind("<Leave>", on_login_leave)
         
         # Focus on username
-        entry_username.focus()
+        entry_email.focus()
     
     # Assistant frame
     assistant_frame = tk.Frame(root, bg="#e0e0e0")
@@ -1002,27 +1087,7 @@ def create_gui():
     
     root.bind('<Return>', on_enter_key)
     
+    # Thêm protocol xử lý sự kiện đóng cửa sổ
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+    
     root.mainloop()
-
-def register_user(username_entry, password_entry, confirm_entry):
-    username = username_entry.get()
-    password = password_entry.get()
-    confirm = confirm_entry.get()
-    
-    if not username or not password or not confirm:
-        messagebox.showwarning("Cảnh báo", "Vui lòng điền đầy đủ thông tin!")
-        return
-        
-    if password != confirm:
-        messagebox.showerror("Lỗi", "Mật khẩu xác nhận không khớp!")
-        return
-    
-    try:
-        response = requests.post(f"{FLASK_API_URL}/register", json={"username": username, "password": password})
-        if response.status_code == 201:
-            messagebox.showinfo("Thành công", "Đăng ký tài khoản thành công!")
-            show_login_form()  # Chuyển về form đăng nhập
-        else:
-            messagebox.showerror("Lỗi", response.json().get("error", "Có lỗi xảy ra!"))
-    except Exception as e:
-        messagebox.showerror("Lỗi", str(e))
