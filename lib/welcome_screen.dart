@@ -19,7 +19,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   getPref() async {
-    Timer(Duration(seconds: 4), () {
+    Timer(const Duration(seconds: 4), () {
   
         Navigator.push(
             context,
@@ -34,8 +34,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return Scaffold(
       backgroundColor: buttonColor,
       body: Container(
-        child: Center(
+        child: const Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Image(
                 image: AssetImage("assets/images/logo.jpg"),
@@ -46,7 +47,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     fontFamily: 'Phosphate', color: Colors.white, fontSize: 40),
               ),
             ],
-            mainAxisAlignment: MainAxisAlignment.center,
           ),
         ),
       ),

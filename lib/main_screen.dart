@@ -3,26 +3,35 @@ import 'package:flutter_nhan_dien_giong_noi/global.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_nhan_dien_giong_noi/config.dart';
+import 'package:flutter_nhan_dien_giong_noi/services/sse_service.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter_nhan_dien_giong_noi/constructor.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int cuttentIndex = 0;
+  int currentIndex = 0;
+  final stt.SpeechToText _speech = stt.SpeechToText();
 
-  late stt.SpeechToText _speech;
   bool _isListening = false;
   String _userMessage = "";
   String _botResponse = "Bot: Chào bạn! Hãy nói điều gì đó...";
+  String _currentResponse = "";
+  bool _isBotTyping = false; // Track bot typing state
+  bool _isLoading = false;
+  FlutterTts flutterTts = FlutterTts();
+  bool isSpeaking = false;
 
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
   }
 
   void _listen() async {
@@ -31,46 +40,50 @@ class _MainScreenState extends State<MainScreen> {
       if (available) {
         setState(() => _isListening = true);
         _speech.listen(
-          onResult: (val) => setState(() {
-            _userMessage = val.recognizedWords;
-          }),
-          localeId: "vi_VN", // Sử dụng ngôn ngữ tiếng Việt
+          onResult: (val) {
+            setState(() {
+              _userMessage = val.recognizedWords;
+              Constructor.updateUserMessage(_userMessage);
+            });
+          },
+          localeId: "vi_VN",
         );
       }
     } else {
       setState(() => _isListening = false);
       _speech.stop();
-      _sendMessageToBot(
-          _userMessage); // Gửi tin nhắn đến bot sau khi dừng ghi âm
+      _sendMessageToBot(_userMessage);
     }
   }
 
-  // Hàm gửi tin nhắn đến API Flask và nhận phản hồi
   Future<void> _sendMessageToBot(String userMessage) async {
-    const String flaskUrl = 'http://172.20.10.4:5000/api/get_response';
-
-    print("Message của người nè" + userMessage);
+    Constructor.updateLoading(true);
+    setState(() {
+      _currentResponse = "";
+      _botResponse = "";
+      _isBotTyping = true; // Start showing the progress indicator
+    });
 
     try {
-      final response = await http.post(
-        Uri.parse(flaskUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_message': userMessage}),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final User? user = FirebaseAuth.instance.currentUser;
+      print("UID" + (user?.uid ?? ""));
+      // print("USERID" + (user?.uid ?? ""));
+      await for (final response in SSEService.streamResponse(userMessage, user?.uid ?? uid)) {
         setState(() {
-          _botResponse = "Bot: ${data['response']}";
-        });
-      } else {
-        setState(() {
-          _botResponse = "Bot không thể trả lời câu hỏi này.";
+          _currentResponse += response;
+          _botResponse = "Bot: $_currentResponse";
+          Constructor.updateBotResponse(_botResponse);
         });
       }
     } catch (e) {
       setState(() {
-        _botResponse = "Lỗi khi kết nối với bot: $e";
+        _botResponse = "Bot: Xin lỗi, tôi không thể trả lời lúc này. Lỗi: $e";
+        Constructor.updateBotResponse(_botResponse);
+      });
+    } finally {
+      Constructor.updateLoading(false);
+      setState(() {
+        _isBotTyping = false; // Stop the progress indicator once done
       });
     }
   }
@@ -83,110 +96,45 @@ class _MainScreenState extends State<MainScreen> {
           "Trợ lý ảo",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        automaticallyImplyLeading: false,
         backgroundColor: buttonColor,
       ),
       floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            _listen();
-          },
-          shape: const CircleBorder(),
-          child: Image.asset(_isListening
-              ? "assets/images/mic_active.png"
-              : "assets/images/mic.png")),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        elevation: 1,
-        height: 60,
-        color: Colors.white,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 10,
-        clipBehavior: Clip.antiAliasWithSaveLayer,
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  cuttentIndex = 0;
-                });
-              },
-              icon: Icon(
-                Icons.grid_view_outlined,
-                size: 30,
-                color: cuttentIndex == 0 ? buttonColor : Colors.grey.shade400,
-              ),
-            ),
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  cuttentIndex = 1;
-                });
-              },
-              icon: Icon(
-                Icons.notifications,
-                size: 30,
-                color: cuttentIndex == 1 ? buttonColor : Colors.grey.shade400,
-              ),
-            ),
-            const SizedBox(
-              width: 15,
-            ),
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  cuttentIndex = 2;
-                });
-              },
-              icon: Icon(
-                Icons.history,
-                size: 30,
-                color: cuttentIndex == 2 ? buttonColor : Colors.grey.shade400,
-              ),
-            ),
-            IconButton(
-              onPressed: () {
-                setState(() {
-                  cuttentIndex = 3;
-                });
-              },
-              icon: Icon(
-                Icons.person,
-                size: 30,
-                color: cuttentIndex == 3 ? buttonColor : Colors.grey.shade400,
-              ),
-            ),
-          ],
-        ),
+        onPressed: _listen,
+        backgroundColor: buttonColor,
+        child: Icon(_isListening ? Icons.mic : Icons.mic_none),
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_userMessage.isNotEmpty)
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  "Bạn: $_userMessage",
-                  style: const TextStyle(fontSize: 18),
-                ),
-              ),
-            ),
-            SizedBox(height: 10,),
-          // Hiển thị phản hồi của bot
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                _botResponse,
-                style: const TextStyle(fontSize: 18),
-              ),
-            ),
-          ),
-
+          if (_isBotTyping) const LinearProgressIndicator(color: Colors.black54,),
+          Expanded(child: PageTab[currentIndex]),
         ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: currentIndex,
+        onTap: (index) {
+          setState(() {
+            currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home, ),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history, ),
+            label: 'History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person, ),
+            label: 'Profile',
+          ),
+        ],
+        selectedLabelStyle: const TextStyle(color: Colors.black),
+        unselectedLabelStyle: const TextStyle(color: Colors.grey),
+        selectedItemColor: buttonColor,
+        unselectedItemColor: Colors.grey,
       ),
     );
   }

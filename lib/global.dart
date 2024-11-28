@@ -1,14 +1,15 @@
-import 'dart:ui';
-
-import 'package:flutter_nhan_dien_giong_noi/history_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_nhan_dien_giong_noi/tabPage/history_screen.dart';
 import 'package:flutter_nhan_dien_giong_noi/tabPage/main_tab.dart';
+import 'package:flutter_nhan_dien_giong_noi/tabPage/profile_screen.dart';
 
-const buttonColor = Color.fromARGB(255, 249, 106, 66);
+const buttonColor = Color(0xFF1877F2);
 
-List PageTab  = [
-  MainTab(),
-  "asdff",
-  HistoryScreen(),
-  'profile',
+List<Widget> PageTab = [
+  const MainTab(),
+  const HistoryScreen(),
+  const ProfileScreen(),
 ];
+
+String uid = "";
 

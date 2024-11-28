@@ -1,27 +1,38 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_nhan_dien_giong_noi/config.dart';
 import 'package:flutter_nhan_dien_giong_noi/constructor.dart';
 import 'package:flutter_nhan_dien_giong_noi/global.dart';
 import 'package:flutter_nhan_dien_giong_noi/main_screen.dart';
 import 'package:flutter_nhan_dien_giong_noi/register_screen.dart';
 import 'package:flutter_nhan_dien_giong_noi/widget/text_input.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
-class LoginScreen extends StatelessWidget {
-  LoginScreen({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
+  bool _obscurePassword = true;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<void> _login(context) async {
-    final String url =  'http://172.20.10.4:5000/login'; // Địa chỉ server Flask của bạn
+    final String url =
+        '${Config.getBaseUrl()}/login'; // Địa chỉ server Flask của bạn
     final Map<String, String> headers = {"Content-Type": "application/json"};
 
     final Map<String, String> body = {
-      "username": _emailController.text,
+      "email": _emailController.text,
       "password": _passwordController.text,
     };
 
@@ -32,13 +43,18 @@ class LoginScreen extends StatelessWidget {
       if (response.statusCode == 200) {
         // Nếu đăng nhập thành công
         final Map<String, dynamic> data = json.decode(response.body);
+        uid = data['user_id'];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(data['message'])),
         );
 
         Constructor.username = _emailController.text;
 
-        Navigator.push(context, MaterialPageRoute(builder: (context) => MainScreen(),));
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MainScreen(),
+            ));
       } else {
         print(response.body);
         // Nếu đăng nhập thất bại
@@ -48,7 +64,7 @@ class LoginScreen extends StatelessWidget {
         );
       }
     } catch (e) {
-      print("Lỗi kết nối" + e.toString());
+      print("Lỗi kết nối$e");
       // Xử lý lỗi nếu không thể kết nối với API
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Lỗi kết nối: $e")),
@@ -56,6 +72,58 @@ class LoginScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      setState(() => Constructor.updateLoading(true));
+
+      // Luôn yêu cầu người dùng chọn tài khoản
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return;
+
+      // Lấy thông tin xác thực
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Đăng nhập vào Firebase
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+
+      // Gửi thông tin lên server của bạn
+      final response = await http.post(
+        Uri.parse('${Config.getBaseUrl()}/google_sign_in'),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "email": userCredential.user?.email,
+          "name": userCredential.user?.displayName,
+          "uid": userCredential.user?.uid,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        Constructor.username = userCredential.user?.email ?? '';
+
+        if (context.mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+        }
+      } else {
+        throw Exception('Đăng nhập thất bại');
+      }
+    } catch (e) {
+      print("Error signing in with Google: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đăng nhập Google thất bại: $e')),
+        );
+      }
+    } finally {
+      setState(() => Constructor.updateLoading(false));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,8 +138,8 @@ class LoginScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 25),
               child: Column(
                 children: [
-                  SizedBox(height: 180),
-                  Row(
+                  const SizedBox(height: 180),
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Text(
@@ -84,29 +152,52 @@ class LoginScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SizedBox(height: 40),
+                  const SizedBox(height: 40),
                   TextInput(
                     controller: _emailController,
                     text: 'Email',
                     icon: Icons.email,
                     isObscure: false,
                   ),
-                  SizedBox(height: 20),
-                  TextInput(
+                  const SizedBox(height: 20),
+                  TextField(
                     controller: _passwordController,
-                    text: 'Password',
-                    icon: Icons.key,
-                    isObscure: true,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      hintText: 'Password',
+                      prefixIcon: const Icon(Icons.key, color: buttonColor),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: buttonColor,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: buttonColor),
+                      ),
+                    ),
                   ),
-                  SizedBox(height: 20),
-                  Text(
+                  const SizedBox(height: 20),
+                  const Text(
                     'Bạn quên mật khẩu?',
                     style: TextStyle(
                       color: buttonColor,
                       fontSize: 16,
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   GestureDetector(
                     onTap: () {
                       _login(context); // Gọi hàm đăng nhập khi nhấn nút
@@ -120,13 +211,13 @@ class LoginScreen extends StatelessWidget {
                             color: Colors.blue.withOpacity(0.2),
                             blurRadius: 10,
                             spreadRadius: 7,
-                            offset: Offset(0, 3),
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
                       padding:
-                          EdgeInsets.symmetric(vertical: 13, horizontal: 75),
-                      child: Text(
+                          const EdgeInsets.symmetric(vertical: 13, horizontal: 75),
+                      child: const Text(
                         'Đăng nhập',
                         style: TextStyle(
                           color: Colors.white,
@@ -136,18 +227,18 @@ class LoginScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         'Bạn không có tài khoản?',
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: 16,
                         ),
                       ),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       InkWell(
                         onTap: () {
                           Navigator.push(
@@ -156,7 +247,7 @@ class LoginScreen extends StatelessWidget {
                                 builder: (context) => RegisterScreen()),
                           );
                         },
-                        child: Text(
+                        child: const Text(
                           'Tạo tài khoản',
                           style: TextStyle(
                             color: buttonColor,
@@ -167,10 +258,11 @@ class LoginScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SizedBox(
+                  const SizedBox(
                     height: 20,
                   ),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       SizedBox(
                         width: 110,
@@ -191,74 +283,48 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                     ],
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   ),
-                  SizedBox(
+                  const SizedBox(
                     height: 20,
                   ),
                   Row(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(36),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey
-                                  .withOpacity(0.2), // Màu sắc của bóng đổ
-                              spreadRadius: 7, // Kích thước mở rộng của bóng
-                              blurRadius: 7, // Mờ của bóng đổ
-                              offset: Offset(0,
-                                  3), // Vị trí của bóng đổ (nghĩa là x và y offset)
-                            ),
-                          ],
-                        ),
-                        padding:
-                            EdgeInsets.symmetric(vertical: 15, horizontal: 25),
-                        child: Row(
-                          children: [
-                            Icon(Icons.facebook),
-                            SizedBox(
-                              width: 8,
-                            ),
-                            Text(
-                              'Facebook',
-                              style: TextStyle(fontSize: 17),
-                            ),
-                          ],
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(36),
                             boxShadow: [
                               BoxShadow(
+                                color: Colors.grey.withOpacity(0.2),
                                 spreadRadius: 7,
                                 blurRadius: 7,
-                                color: Colors.grey.withOpacity(0.2),
-                                offset: Offset(0, 3),
+                                offset: const Offset(0, 3),
                               ),
-                            ]),
-                        padding:
-                            EdgeInsets.symmetric(vertical: 15, horizontal: 25),
-                        child: Row(
-                          children: [
-                            Icon(Icons.email),
-                            SizedBox(
-                              width: 30,
+                            ],
+                          ),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 15, horizontal: 25),
+                          child: InkWell(
+                            onTap: _handleGoogleSignIn,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  'assets/images/super g.png',
+                                  height: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Google',
+                                  style: TextStyle(fontSize: 17),
+                                ),
+                              ],
                             ),
-                            Text(
-                              'Email',
-                              style: TextStyle(fontSize: 17),
-                            ),
-                          ],
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          ),
                         ),
                       ),
                     ],
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   ),
                 ],
               ),

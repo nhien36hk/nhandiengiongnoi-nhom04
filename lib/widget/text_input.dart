@@ -30,7 +30,7 @@ class TextInput extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: buttonColor),
+          borderSide: const BorderSide(color: buttonColor),
         ),
       ),
       obscureText: isObscure,
