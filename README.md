@@ -14,11 +14,21 @@
 
 ## Tính Năng
 
-- **Đăng Ký và Đăng Nhập**: Người dùng có thể tạo tài khoản và đăng nhập để sử dụng ứng dụng.
+- **Đăng Ký và Đăng Nhập**: Người dùng có thể tạo tài khoản và đăng nhập thông thường hoặc bằng Gmail để sử dụng ứng dụng.
 - **Trợ Lý Ảo**: Giao tiếp với trợ lý ảo thông qua giọng nói hoặc văn bản.
 - **Lưu Lịch Sử Truy Vấn**: Lưu lại các câu hỏi và câu trả lời để tham khảo sau này.
 - **Xác Thực Email**: Gửi email xác thực cho người dùng sau khi đăng ký.
 - **Giao Diện Người Dùng**: Giao diện thân thiện và dễ sử dụng với Tkinter cho backend và Flutter cho frontend.
+- **Xử Lý Lệnh**: Ứng dụng có khả năng tương tác với phần cứng bao gồm, bao gồm:
+  - Chào hỏi
+  - Hiển thị thời gian hiện tại
+  - Mở ứng dụng hoặc trang web
+  - Chơi nhạc
+  - Gửi email
+  - Cung cấp thông tin thời tiết
+  - Định nghĩa từ khóa
+  - Thay đổi hình nền máy tính
+### *Lưu ý: nếu không thuộc những câu phần cứng như trên thì nó sẽ sử dụng model AI
 
 ## Mô Hình AI
 
@@ -99,7 +109,7 @@
 
 ## Liên Hệ
 
-Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email: [your_email@example.com](mailto:your_email@example.com).
+Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email: [kingofpro1410@gmail.com](mailto:kingofpro1410@gmail.com).
 
 ## Giấy Phép
 
