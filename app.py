@@ -9,12 +9,14 @@ import json
 import tkinter as tk
 from openai import OpenAI
 from datetime import datetime
+import time
+import pytz
 
 app = Flask(__name__)
 
 conversation_history = []
 client = OpenAI(
-    base_url="http://localhost:11434/v1",
+    base_url="https://384b-2402-800-63b6-c3d0-e8b3-5f68-9684-b9de.ngrok-free.app/v1",
     api_key="ollama"
 )
 
@@ -109,18 +111,19 @@ def stream_response():
     data = request.json
     text = data.get('text', '')
     user_id = data.get('user_id')
-    
+
     def generate():
         try:
             global conversation_history
             conversation_history.append({"role": "user", "content": text})
 
+            # Gọi API trả về dữ liệu stream
             response_stream = client.chat.completions.create(
-                model="gemma2:9b",
-                messages=conversation_history,
-                temperature=0.7,
-                max_tokens=2048,
-                stream=True
+                model="gemma2:9b",  # Chọn mô hình AI
+                messages=conversation_history,  # Lịch sử cuộc trò chuyện
+                temperature=0.7,  # Điều chỉnh tính ngẫu nhiên của phản hồi
+                max_tokens=2048,  # Giới hạn số token tối đa trong phản hồi
+                stream=True  # Bật chế độ streaming
             )
 
             full_response = ""
@@ -131,16 +134,18 @@ def stream_response():
                     for char in content:
                         full_response += char
                         yield f"data: {json.dumps({'content': char})}\n\n"
+                        time.sleep(0.001)  # Giảm tốc độ stream nếu cần thiết
 
             conversation_history.append({"role": "assistant", "content": full_response})
 
             if len(conversation_history) > 10:
                 conversation_history = conversation_history[-10:]
 
-            # Lưu vào cơ sở dữ liệu
+            # Lưu vào cơ sở dữ liệu nếu có user_id
             if user_id:
                 try:
-                    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+                    created_at = datetime.now(vietnam_tz).strftime('%Y-%m-%d %H:%M:%S') # Hour, minutes, seconds
                     save_query_to_history(user_id, text, full_response, created_at)
                 except Exception as e:
                     print(f"Error saving to database: {e}")
@@ -148,7 +153,10 @@ def stream_response():
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+    # Tạo Response, tắt buffering bằng cách thêm header 'X-Accel-Buffering'
+    response = Response(generate())
+    response.headers['X-Accel-Buffering'] = 'no'  # Tắt buffering
+    return response
 
 @app.route('/google_sign_in', methods=['POST'])
 def google_sign_in():
