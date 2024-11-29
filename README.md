@@ -1,4 +1,4 @@
-![Screenshot_1732790461](https://github.com/user-attachments/assets/81f096e4-703b-488e-9576-bbdf2bbccdfb)# Ứng Dụng Trợ Lý Ảo
+# Ứng Dụng Trợ Lý Ảo
 
 
 ## Giới Thiệu
