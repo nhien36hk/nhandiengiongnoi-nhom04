@@ -81,13 +81,13 @@
 
 ### Cài Đặt Các Gói Cần Thiết
 
-#### Backend
+#### Backend (Branch main)
 1. Cài đặt các gói cần thiết cho Flask:
    ```bash
    pip install Flask firebase-admin requests
    ```
 
-#### Frontend
+#### Frontend (Branch android_flutter)
 1. Cài đặt Flutter và các gói cần thiết:
    ```bash
    flutter pub get
