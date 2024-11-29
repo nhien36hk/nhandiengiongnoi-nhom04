@@ -25,6 +25,7 @@ from selenium.webdriver.chrome.options import Options
 from openai import OpenAI
 import threading
 import cohere
+import time
 
 # Định nghĩa biến toàn cục
 text_widget = None
@@ -45,7 +46,7 @@ def speak(text):
         # Xóa tệp nếu nó đã tồn tại
         if os.path.exists("speech.mp3"):
             os.remove("speech.mp3")
-        print(f"Bot: {text}")   
+        print(f"Bot: {text}")
         tts = gTTS(text=text, lang='vi')
         tts.save("speech.mp3")
         playsound.playsound("speech.mp3")
@@ -70,7 +71,7 @@ def get_audio():
 def stop():
     speak("Hẹn gặp lại bạn sau!")
 # Cố gắng thử chuyển đổi 3 lần từ âm thanh sang văn bản
-def get_text(): 
+def get_text():
     for i in range(3):
         text = get_audio()
         if text:
@@ -79,12 +80,12 @@ def get_text():
             speak("Bot không nghe rõ. Bạn nói lại được không!")
     time.sleep(2)
     stop()
-    return 0 
+    return 0
 def hello():
     day_time = int(strftime('%H'))
     if day_time < 12:
         speak("Chào buổi sáng bạn {}. Chúc bạn một ngày tốt lành.")
-        return "Ch��o buổi sáng bạn {}. Chúc bạn một ngày tốt lành."
+        return "Cho buổi sáng bạn {}. Chúc bạn một ngày tốt lành."
     elif 12 <= day_time < 18:
         speak("Chào buổi chiều bạn {}. Bạn đã dự định gì cho chiều nay chưa.")
         return "Chào buổi chiều bạn {}. Bạn đã dự định gì cho chiều nay chưa."
@@ -113,7 +114,7 @@ def open_application(text):
     else:
         speak("Ứng dụng chưa được cài đặt. Bạn hãy thử lại!")
         return "Ứng dụng chưa được cài đặt. Bạn hãy thử lại!"
-        
+
 def open_website(command):
     if "google" in command:
         speak("Đang mở Google")
@@ -133,7 +134,7 @@ def open_google_and_search(text):
     if not search_for:  # Kiểm tra nếu không có từ khóa tìm kiếm
         speak("Xin lỗi, bạn chưa cung cấp từ khóa tìm kiếm.")
         return "Xin lỗi, bạn chưa cung cấp từ khóa tìm kiếm."
-    
+
     speak('Đang mở Google và tìm kiếm cho bạn...')
 
     # Khởi tạo Options cho Chrome
@@ -146,14 +147,14 @@ def open_google_and_search(text):
     try:
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         driver.get("http://www.google.com")
-        
+
         # Tìm kiếm
         que = driver.find_element("name", "q")
         que.send_keys(search_for)
         que.send_keys(Keys.RETURN)
-        
+
         speak("Tìm kiếm đã hoàn tất. Bạn có thể nói 'tắt Google' để tắt trình duyệt.")
-        
+
         # Vòng lặp chờ người dùng yêu cầu tắt Google
         while True:
             command = get_text()  # Hàm này lắng nghe giọng nói của người dùng
@@ -216,7 +217,7 @@ def current_weather():
         Áp suất không khí là {pressure} héc tơ Pascal
         Độ ẩm là {humidity}%
         Trời hôm nay quang mây. Dự báo mưa rải rác ở một số nơi.""".format(day = now.day,month = now.month, year= now.year, hourrise = sunrise.hour, minrise = sunrise.minute,
-                                                                           hourset = sunset.hour, minset = sunset.minute, 
+                                                                           hourset = sunset.hour, minset = sunset.minute,
                                                                            temp = current_temperature, pressure = current_pressure, humidity = current_humidity)
         speak(content)
         return f"{content}"
@@ -231,29 +232,29 @@ import webbrowser
 def play_song():
     speak('Xin mời bạn chọn tên bài hát')
     mysong = get_text()
-    
+
     if not mysong:
         speak("Bot không nhận được tên bài hát.")
         return "Bot không nhận được tên bài hát."
-    
+
     try:
         results = YoutubeSearch(mysong, max_results=10).to_dict()
         if not results:
             speak("Xin lỗi, không tìm thấy bài hát nào.")
             return "Xin lỗi, không tìm thấy bài hát nào."
-        
+
         video = results[0]
         video_id = video.get('id')
         if not video_id:
             speak("Không tìm thấy video hợp lệ.")
             return "Không tìm thấy video hợp lệ."
-        
+
         url = f'https://www.youtube.com/watch?v={video_id}'
         print(f"URL được tạo: {url}")  # In ra URL để kiểm tra
-        
+
         # Mở URL trên trình duyệt mặc định
         webbrowser.open(url)
-        
+
         speak(f"Đang mở bài hát {mysong} trên YouTube.")
         return f"Đang mở bài hát {mysong} trên YouTube."
     except Exception as e:
@@ -280,7 +281,7 @@ def change_wallpaper():
     return 'Hình nền my tính vừa được thay đổi'
 def read_news():
     speak("Bạn muốn đọc báo về gì")
-    
+
     queue = get_text()
     params = {
         'apiKey': '30d02d187f7140faacf9ccd27a1441ad',
@@ -302,19 +303,19 @@ def tell_me_about(text):
         if not search_term:
             speak("Xin lỗi, bạn chưa cung cấp từ khóa để định nghĩa.")
             return "Xin lỗi, bạn chưa cung cấp từ khóa để định nghĩa."
-        
+
         speak(f"Tìm kiếm định nghĩa cho {search_term} trên Wikipedia...")
-        
-        
+
+
         # Tìm kiếm trên Wikipedia
         contents = wikipedia.summary(search_term).split('\n')
-        
+
         if contents:
             speak(contents[0])  # Đọc nội dung đầu tiên
             return f"{contents[0]}"
         else:
             speak("Xin lỗi, không tìm thấy thông tin.")
-        
+
         time.sleep(10)  # Dừng một chút trước khi hỏi lại
 
         # Hỏi xem có muốn nghe thêm không
@@ -322,12 +323,12 @@ def tell_me_about(text):
             speak("Bạn muốn nghe thêm không?")
             ans = get_text()
             if "có" not in ans:
-                break    
+                break
             speak(content)
             time.sleep(10)
 
         speak('Cảm ơn bạn đã lắng nghe!!!')
-        
+
     except wikipedia.exceptions.DisambiguationError as e:
         speak("Có nhiều kết quả cho từ khóa của bạn. Bạn có thể cho tôi biết rõ hơn không?")
     except Exception as e:
@@ -359,11 +360,11 @@ def help_me():
     8. Thay đổi hình nền máy tính
     9. Đọc báo hôm nay
     10. Nói cho bạn biết định nghĩa mọi thứ """
-    
-    
+
+
 # Khởi tạo OpenAI client cho Ollama
 client = OpenAI(
-    base_url="http://localhost:11434/v1",
+    base_url="https://384b-2402-800-63b6-c3d0-e8b3-5f68-9684-b9de.ngrok-free.app/v1",
     api_key="ollama"
 )
 
@@ -371,19 +372,12 @@ client = OpenAI(
 # Thêm biến toàn cục để lưu lịch sử hội thoại
 conversation_history = []
 
-# Initialize Cohere client
-co = cohere.Client('ZOQFdWG6N06aCiWwqqtsIcImDlOAv8eBOihK9vdf')  # Replace with your actual API key
-
-client = OpenAI(
-    base_url="http://localhost:11434/v1",
-    api_key="ollama"
-)
 
 def ask_gemma(question):
     try:
         global conversation_history
         conversation_history.append({"role": "user", "content": question})
-        
+
         response_stream = client.chat.completions.create(
             model="gemma2:9b",  # hoặc model khác từ Ollama
             messages=conversation_history,
@@ -397,7 +391,7 @@ def ask_gemma(question):
             if chunk.choices[0].delta.content is not None:
                 content = chunk.choices[0].delta.content
                 full_response += content
-                
+
                 # Hiển thị từng ký tự trong text widget
                 if text_widget:
                     text_widget.insert(tk.END, content)
@@ -411,16 +405,16 @@ def ask_gemma(question):
             text_widget.update()
 
         conversation_history.append({"role": "assistant", "content": full_response})
-        
+
         # Giới hạn lịch sử
         if len(conversation_history) > 10:
             conversation_history = conversation_history[-10:]
 
         # Tạo thread mới để xử lý speech
         threading.Thread(target=speak, args=(full_response,), daemon=True).start()
-        
+
         return full_response
-        
+
     except Exception as e:
         print(f"Error using Ollama: {e}")
         return "Xin lỗi, tôi không thể xử lý câu hỏi này."
@@ -469,13 +463,12 @@ def get_response(text):
         response = tell_me_about(text)
         command_handled = True
     elif "thay đổi hình nền" in text:
-        response = change_wallpaper()   
+        response = change_wallpaper()
         command_handled = True
 
     # If no command was handled, use Cohere
     if not command_handled:
         response = ask_gemma(text)
         return response
-            
+
     return response
-    
