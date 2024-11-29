@@ -87,7 +87,7 @@
    pip install Flask firebase-admin requests
    ```
 
-#### Frontend (Branch android_flutter)
+#### Frontend (Branch android)
 1. Cài đặt Flutter và các gói cần thiết:
    ```bash
    flutter pub get
