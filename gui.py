@@ -632,15 +632,15 @@ def show_login_form():
     )
     sign_in_label.pack(anchor="w", pady=(0, 20))
     
+    # Email
+    email_label = tk.Label(login_frame, text="Email", font=("Helvetica", 10), bg="white", fg="#666")
+    email_label.pack(anchor="w")
     
     entry_email = tk.Entry(login_frame, font=("Helvetica", 12), bg="white", fg="#333", relief="solid", bd=1)
     entry_email.pack(fill="x", pady=(5, 15))
     entry_email.configure(highlightthickness=1, highlightcolor="#1a73e8")
     
-    entry_full_name = tk.Entry(login_frame, font=("Helvetica", 12), bg="white", fg="#333", relief="solid", bd=1)
-    entry_full_name.pack(fill="x", pady=(5, 15))
-    entry_full_name.configure(highlightthickness=1, highlightcolor="#1a73e8")
-    
+    # Password
     password_label = tk.Label(login_frame, text="Password", font=("Helvetica", 10), bg="white", fg="#666")
     password_label.pack(anchor="w")
     
