@@ -1,5 +1,13 @@
 # Ứng Dụng Trợ Lý Ảo
 
+Danh sách Nhóm 4:
+| STT | Họ và tên          | MSSV       | Lớp     | Ghi chú      |
+|-----|--------------------|------------|---------|--------------|
+| 1   | Văn Thế Tuấn       | 2254810199 | 22ĐHTT04 | Nhóm Trưởng  |
+| 2   | Đinh Hữu Nhiên     | 2254810197 | 22ĐHTT04 | Thành Viên   |
+| 3   | Đặng Nhật Hào      | 2254810159 | 22ĐHTT04 | Thành Viên   |
+| 4   | Trần Huy Hoàng     | 2254810192 | 22ĐHTT04 | Thành Viên   |
+| 5   | Trần Đình Anh Duy  | 2254810246 | 22ĐHTT05 | Thành Viên   |
 
 ## Giới Thiệu
 
